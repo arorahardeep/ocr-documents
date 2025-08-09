@@ -1,0 +1,84 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs/Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+
+# Python tooling caches
+.mypy_cache/
+.pytest_cache/
+.pyre/
+.scala-build/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Logs
+*.log
+logs/
+
+# FastAPI/Uvicorn
+uvicorn.log
+
+# Local environment files
+.env
+backend/.env
+
+# Backend uploads/cache
+backend/uploads/
+backend/*_results.json
+
+# Node / React
+frontend/node_modules/
+frontend/build/
+frontend/.parcel-cache/
+
+# Node logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Lockfiles (optional; keep if you want to commit exact locks)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Misc
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# MacOS
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.retry
