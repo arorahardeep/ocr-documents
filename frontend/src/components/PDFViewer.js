@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 
@@ -10,6 +10,8 @@ const PDFViewer = ({ documentData, currentPage }) => {
   const [scale, setScale] = useState(1.0);
   const [rotation, setRotation] = useState(0);
   const [loading, setLoading] = useState(true);
+  const containerRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   useEffect(() => {
     if (documentData) {
@@ -17,6 +19,18 @@ const PDFViewer = ({ documentData, currentPage }) => {
       setLoading(false);
     }
   }, [documentData]);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.clientWidth;
+        setContainerWidth(width);
+      }
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
 
   const handleDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
@@ -98,7 +112,7 @@ const PDFViewer = ({ documentData, currentPage }) => {
       </div>
 
       {/* PDF Viewer */}
-      <div className="bg-gray-100 rounded-lg p-4 min-h-[400px] flex items-center justify-center">
+      <div ref={containerRef} className="bg-gray-100 rounded-lg p-4 min-h-[400px] max-h-[70vh] overflow-auto">
         {loading ? (
           <div className="flex items-center space-x-2">
             <div className="loading-spinner"></div>
@@ -125,7 +139,7 @@ const PDFViewer = ({ documentData, currentPage }) => {
             >
               <Page
                 pageNumber={currentPage}
-                scale={scale}
+                width={Math.max(200, Math.floor((containerWidth || 800) * scale))}
                 rotate={rotation}
                 loading={
                   <div className="flex items-center space-x-2">
@@ -138,7 +152,7 @@ const PDFViewer = ({ documentData, currentPage }) => {
                     <p>Failed to load page {currentPage}</p>
                   </div>
                 }
-                className="shadow-lg"
+                className="shadow-lg max-w-full h-auto"
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
               />
