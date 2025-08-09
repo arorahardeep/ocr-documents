@@ -9,7 +9,7 @@ from typing import List, Optional
 import aiofiles
 from pathlib import Path
 
-from models import DocumentResponse, PageData, ExtractedField
+from models import DocumentResponse, PageData, ExtractedField, PageExtractRequest
 from services.pdf_service import PDFService
 from services.ocr_service import OCRService
 from config import settings
@@ -41,8 +41,7 @@ async def root():
 
 @app.post("/upload-pdf", response_model=DocumentResponse)
 async def upload_pdf(
-    file: UploadFile = File(...),
-    key_fields: str = Form(...)
+    file: UploadFile = File(...)
 ):
     """
     Upload a PDF file and extract specified fields using OCR
@@ -65,18 +64,15 @@ async def upload_pdf(
             content = await file.read()
             await f.write(content)
         
-        # Parse key fields
-        fields_list = [field.strip() for field in key_fields.split(',') if field.strip()]
-        
-        # Process PDF
-        pages_data = await pdf_service.process_pdf(file_path, fields_list)
+        # No upfront fields; create empty per-page data placeholders
+        pages_data = await pdf_service.prepare_pages(file_path)
         
         # Create response
         response = DocumentResponse(
             doc_id=doc_id,
             filename=file.filename,
             total_pages=len(pages_data),
-            key_fields=fields_list,
+            key_fields=[],
             pages=pages_data
         )
         
@@ -131,6 +127,40 @@ async def get_page(doc_id: str, page_num: int):
         
         return doc_data['pages'][page_num - 1]
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/document/{doc_id}/page/{page_num}/extract")
+async def extract_fields_for_page(doc_id: str, page_num: int, req: PageExtractRequest):
+    """
+    Extract specified fields for a single page.
+    """
+    try:
+        file_path = os.path.join(settings.UPLOAD_DIR, f"{doc_id}.pdf")
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        page_data = await pdf_service.process_page(file_path, page_num, req.key_fields)
+
+        # Update cache file minimally
+        cache_path = os.path.join(settings.UPLOAD_DIR, f"{doc_id}_results.json")
+        if os.path.exists(cache_path):
+            async with aiofiles.open(cache_path, 'r') as f:
+                content = await f.read()
+                doc_data = json.loads(content)
+        else:
+            doc_data = {"doc_id": doc_id, "filename": Path(file_path).name, "total_pages": page_data.page_number, "key_fields": [], "pages": []}
+
+        # Ensure pages array length
+        while len(doc_data.get("pages", [])) < page_num:
+            doc_data.setdefault("pages", []).append({"page_number": len(doc_data["pages"]) + 1, "extracted_fields": [], "page_image_url": None, "text_content": None, "processing_time": None})
+
+        doc_data["pages"][page_num - 1] = page_data.dict()
+
+        async with aiofiles.open(cache_path, 'w') as f:
+            await f.write(json.dumps(doc_data, indent=2, default=str))
+
+        return page_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

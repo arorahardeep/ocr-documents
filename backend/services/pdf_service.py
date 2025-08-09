@@ -17,6 +17,72 @@ class PDFService:
     def __init__(self):
         self.ocr_service = OCRService()
     
+    async def prepare_pages(self, file_path: str) -> List[PageData]:
+        """
+        Prepare per-page placeholders without extraction.
+        """
+        try:
+            pdf_document = fitz.open(file_path)
+            pages_data: List[PageData] = []
+            for page_num in range(len(pdf_document)):
+                page = pdf_document[page_num]
+                # Convert to image preview
+                mat = fitz.Matrix(2.0, 2.0)
+                pix = page.get_pixmap(matrix=mat)
+                img_data = pix.tobytes("png")
+                image = Image.open(io.BytesIO(img_data))
+                img_buffer = io.BytesIO()
+                image.save(img_buffer, format='PNG')
+                # No actual file save here; preview via /uploads/pdf path
+                page_data = PageData(
+                    page_number=page_num + 1,
+                    extracted_fields=[],
+                    page_image_url=f"/uploads/{Path(file_path).stem}.pdf#page={page_num + 1}",
+                    text_content=None,
+                    processing_time=None
+                )
+                pages_data.append(page_data)
+            pdf_document.close()
+            # Save empty results cache
+            await self._save_results(file_path, pages_data, key_fields=[])
+            return pages_data
+        except Exception as e:
+            raise Exception(f"Error preparing pages: {str(e)}")
+
+    async def process_page(self, file_path: str, page_num: int, key_fields: List[str]) -> PageData:
+        """
+        Process a single page and extract specified fields.
+        """
+        try:
+            pdf_document = fitz.open(file_path)
+            if page_num < 1 or page_num > len(pdf_document):
+                raise ValueError("Invalid page number")
+            page = pdf_document[page_num - 1]
+
+            mat = fitz.Matrix(2.0, 2.0)
+            pix = page.get_pixmap(matrix=mat)
+            img_data = pix.tobytes("png")
+            image = Image.open(io.BytesIO(img_data))
+            img_buffer = io.BytesIO()
+            image.save(img_buffer, format='PNG')
+            img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+
+            extracted_fields = await self.ocr_service.extract_fields(
+                img_base64, key_fields, page_num
+            )
+
+            page_data = PageData(
+                page_number=page_num,
+                extracted_fields=extracted_fields,
+                page_image_url=f"/uploads/{Path(file_path).stem}.pdf#page={page_num}",
+                text_content=page.get_text(),
+                processing_time=None
+            )
+            pdf_document.close()
+            return page_data
+        except Exception as e:
+            raise Exception(f"Error processing page: {str(e)}")
+
     async def process_pdf(self, file_path: str, key_fields: List[str]) -> List[PageData]:
         """
         Process a PDF file and extract specified fields from each page
@@ -85,7 +151,7 @@ class PDFService:
                 "key_fields": key_fields,
                 "pages": [page.dict() for page in pages_data],
                 "processing_status": "completed",
-                "created_at": pages_data[0].dict()["created_at"] if pages_data else None
+                "created_at": str(__import__("datetime").datetime.now())
             }
             
             async with aiofiles.open(cache_path, 'w') as f:

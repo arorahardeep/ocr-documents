@@ -4,7 +4,6 @@ import { Upload, FileText, X, AlertCircle } from 'lucide-react';
 
 const FileUpload = ({ onProcessingStart, onDocumentProcessed, onError, isProcessing }) => {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [keyFields, setKeyFields] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -50,17 +49,11 @@ const FileUpload = ({ onProcessingStart, onDocumentProcessed, onError, isProcess
       return;
     }
 
-    if (!keyFields.trim()) {
-      onError('Please specify the fields you want to extract');
-      return;
-    }
-
     onProcessingStart();
 
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('key_fields', keyFields);
 
       const response = await axios.post('/upload-pdf', formData, {
         headers: {
@@ -86,20 +79,6 @@ const FileUpload = ({ onProcessingStart, onDocumentProcessed, onError, isProcess
     setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
-    }
-  };
-
-  const suggestedFields = [
-    'invoice_number', 'date', 'amount', 'vendor_name', 'customer_name',
-    'tax_amount', 'total_amount', 'payment_terms', 'due_date',
-    'company_name', 'address', 'phone', 'email', 'reference_number'
-  ];
-
-  const addSuggestedField = (field) => {
-    const currentFields = keyFields.split(',').map(f => f.trim()).filter(f => f);
-    if (!currentFields.includes(field)) {
-      const newFields = [...currentFields, field];
-      setKeyFields(newFields.join(', '));
     }
   };
 
@@ -169,56 +148,14 @@ const FileUpload = ({ onProcessingStart, onDocumentProcessed, onError, isProcess
         </div>
       </div>
 
-      {/* Key Fields Input */}
-      <div className="card">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Specify Fields to Extract</h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="keyFields" className="block text-sm font-medium text-gray-700 mb-2">
-              Key Fields (comma-separated)
-            </label>
-            <textarea
-              id="keyFields"
-              value={keyFields}
-              onChange={(e) => setKeyFields(e.target.value)}
-              placeholder="e.g., invoice_number, date, amount, vendor_name"
-              className="input-field h-24 resize-none"
-              disabled={isProcessing}
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              Enter the field names you want to extract from the document
-            </p>
-          </div>
-
-          {/* Suggested Fields */}
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Suggested Fields:</p>
-            <div className="flex flex-wrap gap-2">
-              {suggestedFields.map((field) => (
-                <button
-                  key={field}
-                  type="button"
-                  onClick={() => addSuggestedField(field)}
-                  className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors"
-                  disabled={isProcessing}
-                >
-                  {field}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Submit Button */}
       <div className="text-center">
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!selectedFile || !keyFields.trim() || isProcessing}
+          disabled={!selectedFile || isProcessing}
           className={`btn-primary text-lg px-8 py-3 ${
-            (!selectedFile || !keyFields.trim() || isProcessing)
+            (!selectedFile || isProcessing)
               ? 'opacity-50 cursor-not-allowed'
               : ''
           }`}

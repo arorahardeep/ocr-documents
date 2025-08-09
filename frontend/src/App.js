@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import PDFViewer from './components/PDFViewer';
 import ExtractedFieldsTable from './components/ExtractedFieldsTable';
+import axios from 'axios';
 import Pagination from './components/Pagination';
 import LoadingSpinner from './components/LoadingSpinner';
 import { FileText, Upload, CheckCircle, AlertCircle } from 'lucide-react';
@@ -36,6 +37,36 @@ function App() {
   const getCurrentPageData = () => {
     if (!documentData || !documentData.pages) return null;
     return documentData.pages.find(page => page.page_number === currentPage);
+  };
+
+  const [pageFieldsInput, setPageFieldsInput] = useState('');
+  const [pageExtracting, setPageExtracting] = useState(false);
+
+  const extractFieldsForCurrentPage = async () => {
+    const page = getCurrentPageData();
+    if (!documentData || !page) return;
+    const fields = pageFieldsInput
+      .split(',')
+      .map(f => f.trim())
+      .filter(Boolean);
+    if (fields.length === 0) return;
+
+    setPageExtracting(true);
+    try {
+      const res = await axios.post(`/document/${documentData.doc_id}/page/${page.page_number}/extract`, {
+        key_fields: fields,
+      });
+      const updatedPage = res.data;
+      setDocumentData(prev => {
+        const copy = { ...prev };
+        copy.pages = prev.pages.map(p => p.page_number === updatedPage.page_number ? updatedPage : p);
+        return copy;
+      });
+    } catch (e) {
+      setError('Failed to extract fields for this page');
+    } finally {
+      setPageExtracting(false);
+    }
   };
 
   return (
@@ -146,6 +177,30 @@ function App() {
                   documentData={documentData}
                   currentPage={currentPage}
                 />
+                {/* Per-page field input */}
+                <div className="mt-4 border-t pt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Fields to extract on this page (comma-separated)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={pageFieldsInput}
+                      onChange={(e) => setPageFieldsInput(e.target.value)}
+                      placeholder="e.g., invoice_number, date, amount"
+                      className="input-field flex-1"
+                      disabled={pageExtracting}
+                    />
+                    <button
+                      onClick={extractFieldsForCurrentPage}
+                      className="btn-primary"
+                      disabled={pageExtracting || !pageFieldsInput.trim()}
+                    >
+                      {pageExtracting ? 'Extracting...' : 'Extract'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Extraction runs only for the current page.</p>
+                </div>
               </div>
 
               {/* Extracted Fields */}

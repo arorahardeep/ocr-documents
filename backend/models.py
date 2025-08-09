@@ -29,6 +29,9 @@ class DocumentResponse(BaseModel):
 class UploadRequest(BaseModel):
     key_fields: List[str] = Field(..., min_items=1, description="List of fields to extract")
 
+class PageExtractRequest(BaseModel):
+    key_fields: List[str] = Field(..., min_items=1, description="Fields to extract for this page")
+
 class ErrorResponse(BaseModel):
     error: str
     detail: Optional[str] = None
